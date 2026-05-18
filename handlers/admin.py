@@ -24,7 +24,6 @@ os.makedirs(FILES_DIR, exist_ok=True)
 class AddConspect(StatesGroup):
     waiting_pdf = State()
     waiting_topic = State()
-    waiting_number = State()
 
 
 class EditConspect(StatesGroup):
@@ -175,40 +174,17 @@ async def add_got_topic(message: Message, state: FSMContext):
     if not topic:
         await message.answer("❌ Тема не может быть пустой.", reply_markup=cancel_kb())
         return
-    await state.update_data(topic=topic)
-    await state.set_state(AddConspect.waiting_number)
-    await message.answer(
-        "🔢 Введите серийный номер конспекта:\n"
-        "<i>Например: <code>28</code> или <code>#28</code></i>",
-        parse_mode="HTML",
-        reply_markup=cancel_kb(),
-    )
-
-
-@router.message(AddConspect.waiting_number)
-async def add_got_number(message: Message, state: FSMContext):
-    serial = parse_serial_strict(message.text or "")
-    if serial is None:
-        await message.answer(
-            "❌ Неверный формат. Введите число, например <code>28</code> или <code>#28</code>",
-            parse_mode="HTML",
-            reply_markup=cancel_kb(),
-        )
-        return
-
-    if await db.conspect_number_exists(serial):
-        await message.answer(
-            f"❌ Конспект с номером <b>#{serial}</b> уже существует.\n"
-            "Выберите другой номер или измените существующий конспект.",
-            parse_mode="HTML",
-            reply_markup=cancel_kb(),
-        )
-        return
 
     data = await state.get_data()
     file_id = data["file_id"]
-    topic = data["topic"]
-    original_filename = data.get("original_filename", f"conspect_{serial}.pdf")
+    original_filename = data.get("original_filename", "conspect.pdf")
+
+    # Auto-assign next available serial number
+    all_conspects = await db.get_all_conspects()
+    existing = {c["serial_number"] for c in all_conspects}
+    serial = 1
+    while serial in existing:
+        serial += 1
 
     # Download and save file
     from aiogram import Bot
@@ -236,12 +212,12 @@ async def add_got_number(message: Message, state: FSMContext):
         await message.answer(
             f"✅ <b>Сохранено!</b>\n\n"
             f"📖 Тема: <b>{topic}</b>\n"
-            f"🔢 Номер: <b>#{serial}</b>",
+            f"🔢 Номер: <b>#{serial}</b> (назначен автоматически)",
             parse_mode="HTML",
             reply_markup=admin_main_kb(),
         )
     else:
-        await message.answer("❌ Ошибка при сохранении. Возможно, номер уже занят.")
+        await message.answer("❌ Ошибка при сохранении.", reply_markup=admin_main_kb())
 
 
 # ─── LIST CONSPECTS ────────────────────────────────────────────────────────────
