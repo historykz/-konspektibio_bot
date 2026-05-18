@@ -211,7 +211,8 @@ async def add_got_number(message: Message, state: FSMContext):
     original_filename = data.get("original_filename", f"conspect_{serial}.pdf")
 
     # Download and save file
-    from bot import bot as _bot
+    from aiogram import Bot
+    _bot = Bot.get_current()
     file_info = await _bot.get_file(file_id)
     dest_path = os.path.join(FILES_DIR, f"{serial}_{original_filename}")
     await _bot.download_file(file_info.file_path, dest_path)
@@ -343,7 +344,8 @@ async def edit_save_file(message: Message, state: FSMContext):
     data = await state.get_data()
     serial = data["edit_serial"]
 
-    from bot import bot as _bot
+    from aiogram import Bot
+    _bot = Bot.get_current()
     file_info = await _bot.get_file(doc.file_id)
     dest_path = os.path.join(FILES_DIR, f"{serial}_{doc.file_name}")
     await _bot.download_file(file_info.file_path, dest_path)
